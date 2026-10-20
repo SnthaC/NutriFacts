@@ -4,11 +4,17 @@ NutriFacts is an Android app for searching food products and viewing their nutri
 Built with
 
 Kotlin
+
 Jetpack Compose
+
 MVVM
+
 Retrofit
+
 Moshi
+
 Hilt
+
 Coroutines and StateFlow
 
 Current development
