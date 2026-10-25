@@ -1,4 +1,4 @@
-NutriFacts
+
 NutriFacts is an Android app for searching food products and viewing their nutritional information.
 
 Built with
