@@ -1,21 +1,30 @@
+# NutriFacts
 
-NutriFacts is an Android app for searching food products and viewing their nutritional information.
+An Android app for searching food products and viewing their nutritional information.
 
-Built with
+NutriFacts allows users to search for foods and explore their nutritional values through a simple interface.
 
-Kotlin
+## Features
 
-Jetpack Compose
+- Search for food products.
+- View nutritional information for individual foods.
+- Display nutrient values with their corresponding units.
+- Browse recent searches.
+- Access cached search results when available.
 
-MVVM
+## Built With
 
-Retrofit
+- Kotlin
+- Jetpack Compose
+- MVVM
+- Retrofit
+- Moshi
+- Hilt
+- Kotlin Coroutines and StateFlow
+- Room
 
-Moshi
+## API Migration
 
-Hilt
+The initial version used the Open Food Facts API. Due to issues with API requests and data retrieval, I migrated the app to the USDA FoodData Central API to improve search reliability and nutritional data retrieval.
 
-Coroutines and StateFlow
-
-Current development
-The app currently uses the Open Food Facts API. I'm working on improving the search experience and evaluating the USDA FoodData Central API as an alternative data source.
+The current implementation uses USDA FoodData Central as its food data source.
