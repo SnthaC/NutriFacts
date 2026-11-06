@@ -26,7 +26,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(moshi: Moshi): Retrofit =
         Retrofit.Builder()
-            .baseUrl("https://world.openfoodfacts.org/")
+            .baseUrl("https://api.nal.usda.gov/fdc/v1/")
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
 
@@ -35,6 +35,3 @@ object NetworkModule {
     fun provideFoodApi(retrofit: Retrofit): FoodApi =
         retrofit.create(FoodApi::class.java)
 }
-
-//This provides a single shared
-// Retrofit instance and a FoodApi implementation through Hilt.

@@ -1,28 +1,58 @@
 package com.nutrifacts.app.ui.details
 
-
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import com.nutrifacts.app.domain.model.Food
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun FoodDetailsScreen(
-    food: Food,
+    viewModel: FoodDetailsViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val food = uiState.food
+
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    if (food == null) {
+        Text(uiState.error ?: "Food not found")
+        return
+    }
+
     BackHandler(onBack = onBack)
 
     Column(
@@ -39,7 +69,6 @@ fun FoodDetailsScreen(
             )
         }
 
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -47,59 +76,76 @@ fun FoodDetailsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            food.imageUrl?.let { imageUrl ->
-                if (food.imageUrl.isNullOrBlank()) {
-                    Text(
-                        text = "No image available",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
-                } else {
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = food.name,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-            }
 
             Text(food.name, style = MaterialTheme.typography.headlineSmall)
             food.brand?.let { Text("Brand: $it") }
+            Text("Nutrition per 100 g",
+                style = MaterialTheme.typography.titleLarge)
 
-            Text("Nutrition per 100 g", style = MaterialTheme.typography.titleLarge)
+            val priorityOrder = listOf(
+                "Energy",
+                "Energy",
+                "Total lipid (fat)",
+                "Fatty acids, total saturated",
+                "Fatty acids, total monounsaturated",
+                "Fatty acids, total polyunsaturated",
+                "Fatty acids, total trans",
+                "Carbohydrate, by difference",
+                "Total sugars",
+                "Fiber, total dietary",
+                "Protein",
+                "Sodium, Na"
+            )
 
-            NutrientRow("Calories", food.nutrients.calories, "kcal")
-            NutrientRow("Protein", food.nutrients.protein, "g")
-            NutrientRow("Carbohydrates", food.nutrients.carbohydrates, "g")
-            NutrientRow("Fat", food.nutrients.fat, "g")
-            NutrientRow("Saturated fat", food.nutrients.saturatedFat, "g")
-            NutrientRow("Sugars", food.nutrients.sugars, "g")
-            NutrientRow("Fibre", food.nutrients.fiber, "g")
-            NutrientRow("Salt", food.nutrients.salt, "g")
-            NutrientRow("Sodium", food.nutrients.sodium, "mg")
-            NutrientRow("Vitamin A", food.nutrients.vitaminA, "µg")
-            NutrientRow("Vitamin C", food.nutrients.vitaminC, "mg")
-            NutrientRow("Vitamin D", food.nutrients.vitaminD, "µg")
-            NutrientRow("Vitamin B12", food.nutrients.vitaminB12, "µg")
-            NutrientRow("Calcium", food.nutrients.calcium, "mg")
-            NutrientRow("Iron", food.nutrients.iron, "mg")
-            NutrientRow("Potassium", food.nutrients.potassium, "mg")
-            NutrientRow("Magnesium", food.nutrients.magnesium, "mg")
-            NutrientRow("Zinc", food.nutrients.zinc, "mg")
+
+            food.nutrients.sortedBy { nutrient ->
+                val index = priorityOrder.indexOfFirst { priority ->
+                    nutrient.name.contains(priority, ignoreCase = true)
+                }
+                if (index == -1) Int.MAX_VALUE else index
+            }
+                .forEach { nutrient ->
+                    NutrientRow(
+                        label = nutrient.name,
+                        value = nutrient.amount,
+                        unit = nutrient.unit
+                    )
+                }
         }
     }
 }
 
 @Composable
-private fun NutrientRow(label: String, value: Double?, unit: String) {
-    if (value != null) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Text(label, modifier = Modifier.weight(1f))
-            Text("$value $unit")
+private fun NutrientRow(
+    label: String,
+    value: Double?,
+    unit: String
+) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        val isBold = label.equals("Energy", ignoreCase = true) ||
+                label.equals("total lipid (fat)", ignoreCase = true) ||
+                label.equals("carbohydrate, by difference", ignoreCase = true) ||
+                label.equals("Protein", ignoreCase = true) ||
+                label.equals("fiber, total dietary", ignoreCase = true)
+
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal
+        )
+
+        val displayUnit = when (unit) {
+            "G" -> "g"
+            "MG" -> "mg"
+            "UG" -> "µg"
+            else -> unit
         }
+
+        Text(
+            "${
+                value?.let {
+                    if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
+                } ?: "N/A"
+            } $displayUnit")
     }
 }

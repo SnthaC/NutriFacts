@@ -1,15 +1,19 @@
 package com.nutrifacts.app.ui.search
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nutrifacts.app.domain.model.FoodSearchError
+import com.nutrifacts.app.domain.model.FoodSearchResult
 import com.nutrifacts.app.domain.repository.FoodRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 @HiltViewModel
 class FoodSearchViewModel @Inject constructor(
@@ -19,7 +23,6 @@ class FoodSearchViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(FoodSearchUiState())
     val uiState = _uiState.asStateFlow()
 
-
     private var searchJob: Job? = null
 
     fun search(query: String) {
@@ -27,28 +30,110 @@ class FoodSearchViewModel @Inject constructor(
 
         if (query.isBlank()) {
             _uiState.value = FoodSearchUiState()
+            loadRecentSearches()
             return
         }
 
+        searchJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                searchedQuery = query,
+                isLoading = true,
+                error = null,
+                canRetry = false
+            )
+
+            try {
+                when (val result = repository.searchFoods(query)) {
+
+                    is FoodSearchResult.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            foods = result.foods,
+                            error = null
+                        )
+                        loadRecentSearches()
+                    }
+
+                    is FoodSearchResult.Failure -> {
+                        val message = when (result.error) {
+                            FoodSearchError.RATE_LIMITED ->
+                                "Too many searches right now. Please try again later."
+
+                            FoodSearchError.UNAUTHORIZED ->
+                                "The food database couldn't authorize the request. Please try again later."
+
+                            FoodSearchError.NETWORK ->
+                                "Couldn't connect to the food database. Check your connection."
+
+                            FoodSearchError.UNKNOWN ->
+                                "Couldn't load foods. Please try again."
+                        }
+
+                        val canRetry = when (result.error) {
+                            FoodSearchError.NETWORK,
+                            FoodSearchError.UNKNOWN,
+                            FoodSearchError.RATE_LIMITED -> true
+
+                            FoodSearchError.UNAUTHORIZED -> false
+                        }
+
+                        _uiState.value = FoodSearchUiState(
+                            error = message,
+                            canRetry = canRetry
+                        )
+                    }
+                }
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    fun loadRecentSearches() {
+        viewModelScope.launch {
+            try {
+                val recentSearches = repository.getRecentSearches()
+                _uiState.value = _uiState.value.copy(
+                    recentSearches = recentSearches
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                android.util.Log.e(
+                    "FoodSearchViewModel",
+                    "Failed to load recent searches",
+                    error
+                )
+            }
+        }
+    }
+
+    fun searchRecent(query: String) {
+        searchJob?.cancel()
 
         searchJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
-                error = null
+                error = null,
+                canRetry = false
             )
 
             try {
-                repository.searchFoods(query)
-                    .onSuccess { foods ->
-                        _uiState.value = FoodSearchUiState(foods = foods)
-                    }
-                    .onFailure {
-                        _uiState.value = FoodSearchUiState(
-                            error = "Couldn't load foods. Check your connection and try again."
-                        )
-                    }
+                val foods = repository.getCachedSearchResults(query)
+
+                _uiState.value = _uiState.value.copy(
+                    foods = foods,
+                    error = null
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Couldn't load saved results. Please try again."
+                )
             } finally {
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                if (currentCoroutineContext().isActive) {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                }
             }
         }
     }

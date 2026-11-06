@@ -1,80 +1,141 @@
 package com.nutrifacts.app.data.repository
 
-
+import com.nutrifacts.app.BuildConfig
+import com.nutrifacts.app.data.local.FoodEntity
+import com.nutrifacts.app.data.local.FoodLocalDataSource
+import com.nutrifacts.app.data.local.FoodNutrientEntity
 import com.nutrifacts.app.data.remote.FoodApi
 import com.nutrifacts.app.domain.model.Food
-import com.nutrifacts.app.domain.model.Nutrients
+import com.nutrifacts.app.domain.model.FoodSearchError
+import com.nutrifacts.app.domain.model.FoodSearchResult
+import com.nutrifacts.app.domain.model.Nutrient
 import com.nutrifacts.app.domain.repository.FoodRepository
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 class FoodRepositoryImpl @Inject constructor(
-    private val foodApi: FoodApi
+    private val foodApi: FoodApi,
+    private val localDataSource: FoodLocalDataSource
 ) : FoodRepository {
 
-    override suspend fun searchFoods(query: String): Result<List<Food>> =
-        runCatching {
-            val normalizedQuery = query.trim()
+    override suspend fun searchFoods(query: String): FoodSearchResult {
+        val normalizedQuery = query.trim()
 
-            foodApi.searchFoods(query = normalizedQuery)
-                .products
-                .filter { product ->
-                    product.name.orEmpty().contains(
-                        normalizedQuery,
-                        ignoreCase = true
-                    )
+        val cachedFoods = localDataSource.getCachedSearchResults(normalizedQuery)
+
+        if (cachedFoods.isNotEmpty()) {
+            localDataSource.saveRecentSearch(normalizedQuery)
+            return FoodSearchResult.Success(cachedFoods)
+        }
+
+        return try {
+            val response = foodApi.searchFoods(
+                query = normalizedQuery,
+                apiKey = BuildConfig.USDA_API_KEY
+            )
+
+            val foods = response.foods
+                .filter {
+                    it.description
+                        .contains(normalizedQuery, ignoreCase = true)
                 }
-                .mapNotNull { product ->
-                    val name = product.name
-                        ?.takeIf { it.isNotBlank() }
+                .mapNotNull { food ->
+                    val name = food.description.takeIf { it.isNotBlank() }
                         ?: return@mapNotNull null
 
                     Food(
-                        id = product.code ?: name,
+                        id = food.fdcId.toString(),
                         name = name,
-                        brand = product.brands,
-                        imageUrl = product.imageUrl,
-                        nutrients = product.nutriments?.let {
-                            Nutrients(
-                                calories = it.calories,
-                                protein = it.protein,
-                                carbohydrates = it.carbohydrates,
-                                fat = it.fat,
-                                fiber = it.fiber,
-                                sugars = it.sugars,
-                                saturatedFat = it.saturatedFat,
-                                salt = it.salt,
-                                sodium = it.sodium,
-                                vitaminA = it.vitaminA,
-                                vitaminC = it.vitaminC,
-                                vitaminD = it.vitaminD,
-                                vitaminB12 = it.vitaminB12,
-                                calcium = it.calcium,
-                                iron = it.iron,
-                                potassium = it.potassium,
-                                magnesium = it.magnesium,
-                                zinc = it.zinc
+                        brand = food.brandName ?: food.brandOwner,
+                        imageUrl = null,
+                        nutrients = food.foodNutrients.map { nutrient ->
+                            Nutrient(
+                                name = nutrient.nutrientName.orEmpty(),
+                                amount = nutrient.value,
+                                unit = nutrient.unitName.orEmpty()
                             )
-                        } ?: Nutrients(
-                            calories = null,
-                            protein = null,
-                            carbohydrates = null,
-                            fat = null,
-                            fiber = null,
-                            sugars = null,
-                            saturatedFat = null,
-                            salt = null,
-                            sodium = null,
-                            vitaminA = null,
-                            vitaminC = null,
-                            vitaminD = null,
-                            vitaminB12 = null,
-                            calcium = null,
-                            iron = null,
-                            potassium = null,
-                            magnesium = null,
-                            zinc = null
-                        )
+                        }
                     )
                 }
+
+            try {
+                foods.forEach { food ->
+                    localDataSource.saveFoodWithNutrients(
+                        food = FoodEntity(
+                            id = food.id,
+                            name = food.name,
+                            brand = food.brand,
+                            imageUrl = food.imageUrl
+                        ),
+                        nutrients = food.nutrients.map { nutrient ->
+                            FoodNutrientEntity(
+                                foodId = food.id,
+                                name = nutrient.name,
+                                amount = nutrient.amount,
+                                unit = nutrient.unit
+                            )
+                        }
+                    )
+                }
+
+                localDataSource.saveSearchResults(
+                    query = normalizedQuery,
+                    foodIds = foods.map { it.id }
+                )
+
+                localDataSource.saveRecentSearch(normalizedQuery)
+
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                android.util.Log.e(
+                    "FoodRepository",
+                    "Failed to cache search results",
+                    error
+                )
+            }
+
+            FoodSearchResult.Success(foods)
+
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: retrofit2.HttpException) {
+            android.util.Log.e(
+                "FoodRepository",
+                "Food search failed", error
+            )
+
+            val searchError = when (error.code()) {
+                429 -> FoodSearchError.RATE_LIMITED
+                401, 403 -> FoodSearchError.UNAUTHORIZED
+                else -> FoodSearchError.UNKNOWN
+            }
+
+            FoodSearchResult.Failure(searchError)
+        } catch (error: java.io.IOException) {
+            android.util.Log.e(
+                "FoodRepository",
+                "Food search network error", error
+            )
+            FoodSearchResult.Failure(FoodSearchError.NETWORK)
+        } catch (error: Exception) {
+            android.util.Log.e(
+                "FoodRepository",
+                "Food search failed unexpectedly", error
+            )
+            FoodSearchResult.Failure(FoodSearchError.UNKNOWN)
         }
+    }
+
+    override suspend fun getCachedSearchResults(query: String): List<Food> {
+        return localDataSource.getCachedSearchResults(query.trim())
+    }
+
+    override suspend fun getRecentSearches(): List<String> {
+        return localDataSource.getRecentSearches().map { it.query }
+    }
+
+    override suspend fun getFoodById(id: String): Food? {
+        return localDataSource.getFoodById(id)
+    }
 }

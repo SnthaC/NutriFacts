@@ -1,39 +1,46 @@
 package com.nutrifacts.app.navigation
 
-
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.nutrifacts.app.domain.model.Food
+import androidx.navigation.navArgument
 import com.nutrifacts.app.ui.details.FoodDetailsScreen
+import com.nutrifacts.app.ui.details.FoodDetailsViewModel
 import com.nutrifacts.app.ui.search.FoodSearchScreen
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    var selectedFood by remember { mutableStateOf<Food?>(null) }
 
     NavHost(
         navController = navController,
         startDestination = Routes.SEARCH
     ) {
-        composable( Routes.SEARCH) {
+        composable(Routes.SEARCH) {
             FoodSearchScreen(
                 onFoodClick = { food ->
-                    selectedFood = food
-                    navController.navigate(Routes.DETAILS)
+                    navController.navigate("${Routes.DETAILS}/${food.id}")
                 }
             )
         }
 
-        composable(Routes.DETAILS) {
-            selectedFood?.let { food ->
-                FoodDetailsScreen(
-                    food = food,
-                    onBack = { navController.popBackStack() }
-                )
-            }
+        composable(
+            route = "${Routes.DETAILS}/{foodId}",
+            arguments = listOf(
+                navArgument("foodId") {
+                    type = NavType.StringType
+                }
+            )
+        ) {
+            val viewModel: FoodDetailsViewModel = hiltViewModel()
+
+            FoodDetailsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
