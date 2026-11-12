@@ -4,7 +4,6 @@ data class Food(
     val id: String,
     val name: String,
     val brand: String?,
-    val imageUrl: String?,
     val nutrients: List<Nutrient>
 )
 

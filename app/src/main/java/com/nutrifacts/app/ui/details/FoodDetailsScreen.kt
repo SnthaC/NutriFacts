@@ -79,8 +79,10 @@ fun FoodDetailsScreen(
 
             Text(food.name, style = MaterialTheme.typography.headlineSmall)
             food.brand?.let { Text("Brand: $it") }
-            Text("Nutrition per 100 g",
-                style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Nutrition per 100 g",
+                style = MaterialTheme.typography.titleLarge
+            )
 
             val priorityOrder = listOf(
                 "Energy",

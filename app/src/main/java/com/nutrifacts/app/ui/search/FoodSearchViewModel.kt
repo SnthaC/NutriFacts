@@ -25,6 +25,18 @@ class FoodSearchViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    fun onQueryChanged() {
+        searchJob?.cancel()
+
+        _uiState.value = _uiState.value.copy(
+            foods = emptyList(),
+            searchedQuery = "",
+            error = null,
+            canRetry = false,
+            isLoading = false
+        )
+    }
+
     fun search(query: String) {
         searchJob?.cancel()
 
@@ -77,13 +89,16 @@ class FoodSearchViewModel @Inject constructor(
                         }
 
                         _uiState.value = FoodSearchUiState(
+                            foods = emptyList(),
                             error = message,
                             canRetry = canRetry
                         )
                     }
                 }
             } finally {
+                if (currentCoroutineContext().isActive) {
                 _uiState.value = _uiState.value.copy(isLoading = false)
+                }
             }
         }
     }
@@ -128,7 +143,8 @@ class FoodSearchViewModel @Inject constructor(
                 throw error
             } catch (error: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = "Couldn't load saved results. Please try again."
+                    error = "Couldn't load saved results. Please try again.",
+                    canRetry = true
                 )
             } finally {
                 if (currentCoroutineContext().isActive) {

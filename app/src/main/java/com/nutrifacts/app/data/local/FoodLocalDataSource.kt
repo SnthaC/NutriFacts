@@ -47,7 +47,6 @@ class FoodLocalDataSource @Inject constructor(
                     id = cached.food.id,
                     name = cached.food.name,
                     brand = cached.food.brand,
-                    imageUrl = cached.food.imageUrl,
                     nutrients = cached.nutrients.map { nutrient ->
                         Nutrient(
                             name = nutrient.name,
@@ -77,7 +76,6 @@ class FoodLocalDataSource @Inject constructor(
             id = cached.food.id,
             name = cached.food.name,
             brand = cached.food.brand,
-            imageUrl = cached.food.imageUrl,
             nutrients = cached.nutrients.map { nutrient ->
                 Nutrient(
                     name = nutrient.name,

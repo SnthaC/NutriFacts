@@ -47,7 +47,6 @@ class FoodRepositoryImpl @Inject constructor(
                         id = food.fdcId.toString(),
                         name = name,
                         brand = food.brandName ?: food.brandOwner,
-                        imageUrl = null,
                         nutrients = food.foodNutrients.map { nutrient ->
                             Nutrient(
                                 name = nutrient.nutrientName.orEmpty(),
@@ -64,8 +63,7 @@ class FoodRepositoryImpl @Inject constructor(
                         food = FoodEntity(
                             id = food.id,
                             name = food.name,
-                            brand = food.brand,
-                            imageUrl = food.imageUrl
+                            brand = food.brand
                         ),
                         nutrients = food.nutrients.map { nutrient ->
                             FoodNutrientEntity(
@@ -88,11 +86,7 @@ class FoodRepositoryImpl @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                android.util.Log.e(
-                    "FoodRepository",
-                    "Failed to cache search results",
-                    error
-                )
+                // Cache failures should not prevent returning successful API results.
             }
 
             FoodSearchResult.Success(foods)
@@ -100,10 +94,6 @@ class FoodRepositoryImpl @Inject constructor(
         } catch (error: CancellationException) {
             throw error
         } catch (error: retrofit2.HttpException) {
-            android.util.Log.e(
-                "FoodRepository",
-                "Food search failed", error
-            )
 
             val searchError = when (error.code()) {
                 429 -> FoodSearchError.RATE_LIMITED
@@ -113,16 +103,9 @@ class FoodRepositoryImpl @Inject constructor(
 
             FoodSearchResult.Failure(searchError)
         } catch (error: java.io.IOException) {
-            android.util.Log.e(
-                "FoodRepository",
-                "Food search network error", error
-            )
             FoodSearchResult.Failure(FoodSearchError.NETWORK)
         } catch (error: Exception) {
-            android.util.Log.e(
-                "FoodRepository",
-                "Food search failed unexpectedly", error
-            )
+
             FoodSearchResult.Failure(FoodSearchError.UNKNOWN)
         }
     }

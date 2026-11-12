@@ -19,12 +19,6 @@ interface FoodDao {
     @Query("SELECT * FROM foods WHERE id = :foodId")
     suspend fun getFoodWithNutrients(foodId: String): FoodWithNutrients?
 
-    @Transaction
-    @Query("SELECT * FROM foods WHERE id = :foodId")
-    suspend fun getFoodWithNutrientsById(
-        foodId: String
-    ): FoodWithNutrients?
-
     @Query("SELECT * FROM foods WHERE name LIKE '%' || :query || '%' ORDER BY name LIMIT 5")
     suspend fun getFoodsMatching(query: String): List<FoodEntity>
 

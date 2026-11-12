@@ -64,6 +64,7 @@ fun FoodSearchScreen(
             value = query,
             onValueChange = {
                 query = it
+                viewModel.onQueryChanged()
             },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Search foods") },
@@ -118,11 +119,13 @@ fun FoodSearchScreen(
                 ) {
                     Text(uiState.error ?: "Something went wrong")
 
-                    Button(
-                        onClick = { viewModel.search(query) },
-                        enabled = query.isNotBlank()
-                    ) {
-                        Text("Try again")
+                    if (uiState.canRetry) {
+                        Button(
+                            onClick = { viewModel.search(query) },
+                            enabled = query.isNotBlank()
+                        ) {
+                            Text("Try again")
+                        }
                     }
                 }
             }

@@ -8,6 +8,5 @@ data class FoodEntity(
     @PrimaryKey
     val id: String,
     val name: String,
-    val brand: String?,
-    val imageUrl: String?
+    val brand: String?
 )
