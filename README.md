@@ -10,6 +10,16 @@ The initial version used the Open Food Facts API. Due to issues with API request
 The current implementation uses USDA FoodData Central as its food data source.
 
 
+## Data Sources and Attribution
+
+**Current data source: USDA FoodData Central**
+
+Nutrition data is retrieved from [USDA FoodData Central](https://fdc.nal.usda.gov/), provided by the U.S. Department of Agriculture, Agricultural Research Service, and available under CC0 1.0.
+
+**Previous data source: Open Food Facts**
+
+The initial version of NutriFacts used [Open Food Facts](https://world.openfoodfacts.org/) for product information and product images. Product images were provided by Open Food Facts contributors under the Creative Commons Attribution-ShareAlike (CC BY-SA) licence.
+
 ## Features
 
 - Search for food products using USDA FoodData Central.
